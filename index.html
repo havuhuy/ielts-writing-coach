@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IELTS Writing Coach</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>IELTS Writing Coach</h1>
+
+    <section class="card">
+      <div id="topic" class="topic">Đang tạo đề bài…</div>
+      <div class="controls">
+        <select id="level">
+          <option value="B1">B1</option>
+          <option value="B2" selected>B2</option>
+          <option value="C1">C1</option>
+        </select>
+        <button id="btnNew">Đổi đề</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <label for="answer">Bài viết của bạn</label>
+      <textarea id="answer" rows="10" placeholder="Viết bài tại đây…"></textarea>
+      <button id="btnSubmit">Gửi & chấm điểm</button>
+    </section>
+
+    <section class="card">
+      <h2>Nhận xét</h2>
+      <div id="result">Chưa có nhận xét.</div>
+    </section>
+  </main>
+
+  <script>
+    async function fetchTopic() {
+      const level = document.getElementById('level').value;
+      document.getElementById('topic').textContent = 'Đang tạo đề bài…';
+      const res = await fetch(`/api/new-prompt?level=${encodeURIComponent(level)}`);
+      const data = await res.json();
+      document.getElementById('topic').textContent = data.prompt;
+    }
+
+    async function submitAnswer() {
+      const answer = document.getElementById('answer').value.trim();
+      if (!answer) { alert('Bạn chưa viết gì cả!'); return; }
+      const topic = document.getElementById('topic').textContent;
+      const level = document.getElementById('level').value;
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true; btn.textContent = 'Đang chấm…';
+
+      const res = await fetch('/api/evaluate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ prompt: topic, answer, level })
+      });
+      const data = await res.json();
+      btn.disabled = false; btn.textContent = 'Gửi & chấm điểm';
+
+      const r = data.result;
+      document.getElementById('result').innerHTML = `
+        <p><strong>Điểm (ước lượng band):</strong> ${r.band_estimate}</p>
+        <p><strong>Tổng quan:</strong> ${r.overview}</p>
+        <p><strong>Task Response:</strong> ${r.task_response}</p>
+        <p><strong>Coherence & Cohesion:</strong> ${r.coherence}</p>
+        <p><strong>Lexical Resource:</strong> ${r.lexical}</p>
+        <p><strong>Grammar:</strong> ${r.grammar}</p>
+        <p><strong>Gợi ý sửa 3 câu:</strong></p>
+        <ol>${r.sentence_fixes.map(s => `<li>${s}</li>`).join('')}</ol>
+      `;
+    }
+
+    document.getElementById('btnNew').addEventListener('click', fetchTopic);
+    document.getElementById('btnSubmit').addEventListener('click', submitAnswer);
+    window.addEventListener('load', fetchTopic);
+  </script>
+</body>
+</html>
